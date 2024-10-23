@@ -1,0 +1,43 @@
+<!--
+    - Policies are applied in the order they appear.
+    - Position <base/> inside a section to inherit policies from the outer scope.
+    - Comments within policies are not preserved.
+-->
+<!-- Add policies as children to the <inbound>, <outbound>, <backend>, and <on-error> elements -->
+<policies>
+    <!-- Throttle, authorize, validate, cache, or transform the requests -->
+    <inbound>
+        <base />
+        <send-request ignore-error="true" timeout="20" response-variable-name="bearerToken" mode="new">
+            <set-url>{{authorizationServer}}/{{TenantId}}/oauth2/v2.0/token</set-url>
+            <set-method>POST</set-method>
+            <set-header name="Content-Type" exists-action="override">
+                <value>application/x-www-form-urlencoded</value>
+            </set-header>
+            <set-body>@{
+                return "client_id={{ClientId}}&scope={{scope}}&client_secret={{ClientSecret}}&grant_type=client_credentials";
+
+                // For Azure AD v1, try return statement below
+                // return "client_id={{ClientId}}&resource={{scope}}&client_secret={{ClientSecret}}&grant_type=client_credentials";
+            }</set-body>
+        </send-request>
+        <set-header name="Authorization" exists-action="override">
+            <value>@("Bearer " + (String)((IResponse)context.Variables["bearerToken"]).Body.As<JObject>()["access_token"])</value>
+        </set-header>
+        <!--  Don't expose APIM subscription key to the backend. -->
+        <set-header name="Ocp-Apim-Subscription-Key" exists-action="delete" />
+        <set-backend-service base-url="https://apitest.politerock-1d7a8973.uksouth.azurecontainerapps.io" />
+    </inbound>
+    <!-- Control if and how the requests are forwarded to services  -->
+    <backend>
+        <base />
+    </backend>
+    <!-- Customize the responses -->
+    <outbound>
+        <base />
+    </outbound>
+    <!-- Handle exceptions and customize error responses  -->
+    <on-error>
+        <base />
+    </on-error>
+</policies>
